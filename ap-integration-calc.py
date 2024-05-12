@@ -1,5 +1,8 @@
 import argparse
+import csv
+import os
 import re
+from datetime import datetime, timedelta
 
 def parse_time(line):
     # Define the pattern to extract the date and time segment
@@ -11,9 +14,11 @@ def parse_time(line):
     per_day_time = {}
     # Iterate through matches and update the per-day time dictionary
     for match in matches:
-        # Extract date and time value
-        date, time_seconds = match
-        time_seconds = float(time_seconds)
+        # Subtract 12 hours from the datetime to get the correc date when the acquisition was done (avoids date change at midnight)
+        date = datetime.strptime(match[0], "%Y-%m-%d")
+        date -= timedelta(hours=12)  # Subtract 12 hours
+        date = date.strftime("%Y-%m-%d")
+        time_seconds = float(match[1])
         # Update per-day time dictionary
         key = (date, time_seconds)
         if key in per_day_time:
@@ -22,6 +27,26 @@ def parse_time(line):
         else:
             per_day_time[key] = [1, time_seconds]
     return per_day_time
+
+def write_to_csv(sorted_per_day_time_accepted, logfile):
+    directory, filename = os.path.split(logfile)
+    filename_without_extension = os.path.splitext(filename)[0]
+    csv_file = os.path.join(directory, f"{filename_without_extension}.csv")
+    #field_names = ['date', 'filter', 'number', 'duration']
+    field_names = ['date', 'number', 'duration']
+
+    print("\nWriting image acquisition details to CSV file: ", csv_file)
+    with open(csv_file, mode='w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=field_names)
+        writer.writeheader()
+        for (date, time_seconds), (count, total_seconds) in sorted_per_day_time_accepted:
+            writer.writerow({
+                'date': date,
+                # omitting filter for now
+                # 'filter': '',
+                'number': count,
+                'duration': '{:.0f}'.format(time_seconds)
+            })
 
 def main(logfile):
     accepted_time_total = 0
@@ -69,6 +94,8 @@ def main(logfile):
     sorted_per_day_time_accepted = sorted(per_day_time_accepted.items(), key=lambda x: (x[0][0], x[0][1]))
     for (date, time_seconds), (count, total_seconds) in sorted_per_day_time_accepted:
         print("Date:", date, "| Exposure:", time_seconds, "s",  "| Subs:", str(count).rjust(3), "| Total time:", format_time(total_seconds))
+
+    write_to_csv(sorted_per_day_time_accepted, logfile)
 
 def format_time(seconds):
     if seconds >= 3600:
