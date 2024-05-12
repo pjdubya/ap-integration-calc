@@ -29,6 +29,7 @@ def parse_time(line):
     return per_day_time
 
 def write_to_csv(sorted_per_day_time_accepted, logfile):
+    # for future reference: https://welcome.astrobin.com/importing-acquisitions-from-csv
     directory, filename = os.path.split(logfile)
     filename_without_extension = os.path.splitext(filename)[0]
     csv_file = os.path.join(directory, f"{filename_without_extension}.csv")
